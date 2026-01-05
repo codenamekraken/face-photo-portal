@@ -3,13 +3,18 @@ import face_recognition
 import os
 import pickle
 
-app = Flask(__name__)   # 👈 THIS MUST EXIST
+app = Flask(__name__)
 
 PHOTO_DIR = "photos/all_photos"
 ENCODING_FILE = "photos/encodings.pkl"
 
-with open(ENCODING_FILE, "rb") as f:
-    known_faces = pickle.load(f)
+# ✅ Safe loading
+if os.path.exists(ENCODING_FILE) and os.path.getsize(ENCODING_FILE) > 0:
+    with open(ENCODING_FILE, "rb") as f:
+        known_faces = pickle.load(f)
+else:
+    known_faces = {}
+    print("⚠️ No face encodings found. Upload photos first.")
 
 @app.route("/")
 def index():
@@ -17,6 +22,9 @@ def index():
 
 @app.route("/upload", methods=["POST"])
 def upload():
+    if not known_faces:
+        return "No photos indexed yet. Please try later."
+
     file = request.files["selfie"]
     img = face_recognition.load_image_file(file)
     encodings = face_recognition.face_encodings(img)
@@ -34,7 +42,3 @@ def upload():
                 break
 
     return render_template("results.html", photos=matched_photos)
-
-
-# ❌ DO NOT RUN app.run() IN PRODUCTION
-# Gunicorn handles running the server

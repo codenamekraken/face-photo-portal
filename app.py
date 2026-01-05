@@ -1,10 +1,8 @@
-app.config["MAX_CONTENT_LENGTH"] = 150 * 1024 * 1024
-
 from flask import (
     Flask, render_template, request, redirect,
     session, send_from_directory, send_file
 )
-import face_recognition
+
 import os
 import pickle
 import io
@@ -12,21 +10,28 @@ import zipfile
 import sqlite3
 import time
 
+# ================= APP INIT =================
 app = Flask(__name__)
+app.secret_key = "change-this-secret-key"
+
+# Max upload size (150MB)
+app.config["MAX_CONTENT_LENGTH"] = 150 * 1024 * 1024
 
 # ================= CONFIG =================
-app.secret_key = "change-this-secret-key"
 ADMIN_PASSWORD = "admin123"
-
-PAYMENT_JOKE_MODE = True   # TRUE = ₹500/₹100 joke | FALSE = free download
+PAYMENT_JOKE_MODE = True
 
 PHOTO_DIR = "photos/all_photos"
 ENCODING_FILE = "photos/encodings.pkl"
 DB_FILE = "stats.db"
-
-AUTO_DELETE_DAYS = 7   # 🔥 AUTO DELETE AFTER 7 DAYS
+AUTO_DELETE_DAYS = 7
 
 os.makedirs(PHOTO_DIR, exist_ok=True)
+
+# ================= LAZY FACE RECOGNITION =================
+def get_face_recognition():
+    import face_recognition
+    return face_recognition
 
 # ================= DATABASE =================
 def db():
@@ -65,12 +70,11 @@ def auto_delete_old_photos(days):
     if changed:
         with open(ENCODING_FILE, "wb") as f:
             pickle.dump(faces, f)
-        print("🧹 Old photos auto-deleted (7 days rule)")
+        print("🧹 Old photos auto-deleted")
 
-# Run cleanup on startup
 auto_delete_old_photos(AUTO_DELETE_DAYS)
 
-# ================= SAFE LOAD ENCODINGS =================
+# ================= LOAD ENCODINGS =================
 if os.path.exists(ENCODING_FILE) and os.path.getsize(ENCODING_FILE) > 0:
     with open(ENCODING_FILE, "rb") as f:
         known_faces = pickle.load(f)
@@ -100,8 +104,10 @@ def upload():
     if not file:
         return "No file uploaded"
 
-    img = face_recognition.load_image_file(file)
-    encs = face_recognition.face_encodings(img)
+    fr = get_face_recognition()
+
+    img = fr.load_image_file(file)
+    encs = fr.face_encodings(img)
     if not encs:
         return "No face detected"
 
@@ -110,7 +116,7 @@ def upload():
 
     for photo, faces in known_faces.items():
         for face in faces:
-            if face_recognition.compare_faces([face], user_face, 0.5)[0]:
+            if fr.compare_faces([face], user_face, 0.5)[0]:
                 matched.append(photo)
                 break
 
@@ -164,23 +170,21 @@ def dashboard():
     conn.close()
 
     photos = os.listdir(PHOTO_DIR)
-    photo_count = len(photos)
 
     return render_template(
         "admin_dashboard.html",
         visits=visits,
-        photo_count=photo_count,
+        photo_count=len(photos),
         photos=photos
     )
 
-# ================= ADMIN VIEW ALL PHOTOS =================
+# ================= ADMIN PHOTO GALLERY =================
 @app.route("/admin/photos")
 def admin_photos():
     if not session.get("admin"):
         return redirect("/admin")
 
     photos = sorted(os.listdir(PHOTO_DIR))
-
     return render_template(
         "admin_photos.html",
         photos=photos,
@@ -197,6 +201,7 @@ def admin_upload():
 
     if request.method == "POST":
         files = request.files.getlist("photos")
+        fr = get_face_recognition()
 
         if os.path.exists(ENCODING_FILE) and os.path.getsize(ENCODING_FILE) > 0:
             with open(ENCODING_FILE, "rb") as f:
@@ -211,15 +216,18 @@ def admin_upload():
             path = os.path.join(PHOTO_DIR, file.filename)
             file.save(path)
 
-            img = face_recognition.load_image_file(path)
-            encs = face_recognition.face_encodings(img)
-            if encs:
-                known_faces[file.filename] = encs
+            try:
+                img = fr.load_image_file(path)
+                encs = fr.face_encodings(img)
+                if encs:
+                    known_faces[file.filename] = encs
+            except Exception as e:
+                print("⚠️ Face processing failed:", file.filename, e)
 
         with open(ENCODING_FILE, "wb") as f:
             pickle.dump(known_faces, f)
 
-        return "Photos uploaded & indexed"
+        return "Photos uploaded successfully"
 
     return render_template("admin_upload.html")
 

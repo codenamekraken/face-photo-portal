@@ -1,17 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Your Photos</title>
+<title>Your Photos</title>
+<style>
+body{font-family:Arial;background:#f4f6f8}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,200px);gap:15px}
+img{width:100%;border-radius:8px}
+button{margin-top:20px;padding:12px;background:#4f46e5;color:#fff;border:none;border-radius:8px}
+</style>
 </head>
 <body>
+
 <h2>Your Photos</h2>
 
-{% if photos %}
-    {% for photo in photos %}
-        <img src="/photos/all_photos/{{ photo }}" width="300"><br><br>
-    {% endfor %}
+<form method="post" action="/download">
+<div class="grid">
+{% for photo in photos %}
+<div>
+<input type="checkbox" name="photos" value="{{ photo }}" checked><br>
+<img src="/photos/{{ photo }}">
+</div>
+{% endfor %}
+</div>
+
+{% if joke_mode %}
+<button type="button" onclick="openPay()">💰 Unlock Download</button>
 {% else %}
-    <p>No matching photos found.</p>
+<button type="submit">⬇ Download</button>
+{% endif %}
+</form>
+
+{% if joke_mode %}
+<div id="payBox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6)">
+<div style="background:#fff;width:320px;margin:120px auto;padding:25px;border-radius:12px;text-align:center">
+<h3>😂 Demo Payment</h3>
+<button onclick="pay('girls')" style="width:100%;margin:5px;background:#ec4899;color:#fff">Girls ₹500</button>
+<button onclick="pay('boys')" style="width:100%;margin:5px;background:#3b82f6;color:#fff">Boys ₹100</button>
+<p style="font-size:12px">Just for fun 😄</p>
+<button onclick="closePay()">Cancel</button>
+</div>
+</div>
+
+<script>
+function openPay(){payBox.style.display="block"}
+function closePay(){payBox.style.display="none"}
+function pay(){setTimeout(()=>document.forms[0].submit(),1500)}
+</script>
 {% endif %}
 
 </body>

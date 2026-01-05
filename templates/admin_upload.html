@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Admin Upload</title>
+<style>
+body{font-family:Arial;background:#f4f6f8}
+.box{background:#fff;padding:30px;border-radius:12px;width:500px;margin:50px auto}
+.drop{border:2px dashed #4f46e5;padding:40px;text-align:center;cursor:pointer}
+progress{width:100%}
+</style>
+</head>
+<body>
+
+<div class="box">
+<h2>Upload Photos</h2>
+<p id="count">0 files selected</p>
+
+<div class="drop" onclick="file.click()">
+Drag & Drop or Click
+<input type="file" id="file" multiple hidden>
+</div>
+
+<progress id="bar" value="0" max="100"></progress><br><br>
+<button onclick="upload()">Upload & Index</button>
+</div>
+
+<script>
+let files=[]
+file.onchange=e=>{files=[...e.target.files];count.innerText=files.length+" files"}
+function upload(){
+ let f=new FormData()
+ files.forEach(x=>f.append("photos",x))
+ let xh=new XMLHttpRequest()
+ xh.open("POST","/admin/upload")
+ xh.upload.onprogress=e=>bar.value=e.loaded/e.total*100
+ xh.onload=()=>alert(xh.responseText)
+ xh.send(f)
+}
+</script>
+
+</body>
+</html>
